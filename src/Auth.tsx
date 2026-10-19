@@ -49,7 +49,7 @@ function Login({ onSignedIn }: { onSignedIn: () => void }) {
 
   return <div className="login-page">
     <section className="login-story" aria-label="Webhook Inbox">
-      <a className="login-brand" href="/"><span className="login-mark"><Webhook size={25} /></span><span>webhook<br /><b>inbox</b></span></a>
+      <a className="login-brand" href="/"><span className="login-mark"><Webhook size={25} /></span><span>webhook<br /><b>lab</b></span></a>
       <div className="login-story-content"><div className="eyebrow">A WORKSPACE FOR YOUR WEBHOOKS</div><div className="login-statement">Catch.<br /> Inspect.<br /> <span>Replay.</span><i>↗</i></div><p>From an incoming request<br /> to your next local test.</p></div>
       <div className="login-flow" aria-hidden="true"><span><small>01</small>CAPTURE</span><i /><span><small>02</small>INSPECT</span><i /><span><small>03</small>REPLAY</span></div>
       <div className="login-story-footer"><span className="tiny-dot" />PERSONAL TOOLS, LESS FRICTION.</div>
@@ -61,11 +61,11 @@ function Login({ onSignedIn }: { onSignedIn: () => void }) {
           <label className="field-label" htmlFor="username">USERNAME</label><input className="login-input" id="username" name="username" autoComplete="username" autoCapitalize="none" spellCheck={false} required value={username} onChange={(event) => setUsername(event.target.value)} disabled={pending} aria-invalid={!!error} aria-describedby={error ? 'login-error' : undefined} />
           <label className="field-label" htmlFor="password">PASSWORD</label><div className="password-field"><input className="login-input" id="password" name="password" type={showPassword ? 'text' : 'password'} autoComplete="current-password" required value={password} onChange={(event) => setPassword(event.target.value)} disabled={pending} aria-invalid={!!error} aria-describedby={error ? 'login-error' : undefined} /><button type="button" className="icon-button" aria-label={showPassword ? 'Hide password' : 'Show password'} aria-pressed={showPassword} onClick={() => setShowPassword(!showPassword)}>{showPassword ? <EyeOff size={17} /> : <Eye size={17} />}</button></div>
           {error && <p id="login-error" className="login-error" role="alert">{error}</p>}
-          <button className="login-submit" type="submit" disabled={pending}>{pending ? <><Loader2 size={17} className="spin" />Signing in…</> : <>Open your inbox<ArrowRight size={18} /></>}</button>
+          <button className="login-submit" type="submit" disabled={pending}>{pending ? <><Loader2 size={17} className="spin" />Signing in…</> : <>Open your workspace<ArrowRight size={18} /></>}</button>
         </form>
         <div className="login-reassurance"><Check size={14} /><span>Your local replay URL stays saved in this browser.</span></div>
       </div>
-      <footer className="login-access-footer"><span>WEBHOOK INBOX / PERSONAL EDITION</span><span>CAPTURE → LOCALHOST</span></footer>
+      <footer className="login-access-footer"><span>WEBHOOK LAB / PERSONAL EDITION</span><span>CAPTURE → LOCALHOST</span></footer>
     </section>
   </div>;
 }

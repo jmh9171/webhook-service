@@ -1,8 +1,40 @@
-# Webhook Inbox
+# Webhook Lab
 
-A personal webhook capture and local replay tool. One application, an in-memory inbox, no database.
+A personal webhook testing toolbox. TypeScript, React/Vite, Fastify, one application instance, and temporary memory storage. No database.
 
 Live dashboard: https://webhook-inbox-pa23o.sevalla.app. Access credentials are saved locally in the ignored `.env.access.json`; see [deployment details](DEPLOYMENT.md).
+
+## Feature workspaces
+
+The overview groups tools by task. Each feature has its own page and controls; the green interface uses sans-serif typography with monospace reserved for request data.
+
+| Section | Tools | Where they run |
+| --- | --- | --- |
+| Inspect | Webhook inbox, HTTP/JSON comparison, contract learning and drift checks, webhook signature verification | Hosted captures; browser analysis |
+| Local replay | Time machine, duplicate/shuffle/omit simulator, JSON payload mutation, visual workflows | Downloaded Node.js scripts on your machine |
+| Hosted simulators | Chaos endpoints and mock APIs | This application instance |
+| Monitor | Correlated event timeline and heartbeat watchdogs | This application instance |
+| Utilities | JSON formatting/extraction, JWT decoding, Base64/URL/JSON conversions, SHA-256/HMAC, timestamps, UUIDs | Browser only |
+
+### Local replay and workflows
+
+Choose captured requests, enter your local destination, download the generated `.mjs` script, and run it with Node.js 22+. It preserves body bytes and duplicate query parameters while stripping transport, proxy, and sensitive headers. Time machine controls order and timing; Event disorder changes event multiplicity and selection and sends the resulting sequence without recorded delays. Payload mutation creates separate JSON test cases. The workflow builder supports up to 20 steps, delays, JSON field changes, per-step destinations, import/export, and an optional local HTTP trigger. Triggered workflows apply accumulated field changes to the incoming event. Local scripts are executed by you; the hosted server never forwards traffic to your localhost.
+
+### Hosted endpoints
+
+- **Chaos:** up to 10 endpoints. Fail the first N requests, every Nth request, or a percentage; add delay/jitter (maximum total 10 seconds), choose an error status, inspect attempts, and reset counters.
+- **Mock APIs:** up to 10 APIs with 10 routes each. Match methods, literal paths, and `:parameter` segments. Return JSON or text, custom headers, chosen statuses, and delays. Optionally require a test bearer token, paginate an array with `page`/`limit`, or impose a per-route minute limit. CORS is enabled only on simulator endpoints. Bodies are capped at 16 KiB per route. Definitions can be exported and imported; copy an existing API to the editor to create a variant.
+- **Heartbeats:** up to 10 watches with interval/grace settings, ping URLs, missed/recovered events, and an optional HTTPS alert webhook. Monitoring continues while the application instance runs, even if the browser closes. Alert delivery uses public IPv4 destinations on HTTPS port 443, pins DNS resolution, follows no redirects, and times out. A failed delivery is shown in the watch. This is a temporary test monitor, not durable uptime monitoring.
+
+### Correlating App Notifier events
+
+The timeline retains up to 300 events. Capture events derive correlation IDs from `X-Correlation-Id`, `X-Request-Id`, `correlationId`, `event_id`, `data.id`, or `id`. External apps can POST `{ "event": "notification.delivered", "correlationId": "order_001", "status": "delivered", "detail": "Email accepted" }` to the event URL shown on the Timeline page. Use the same correlation ID across services. The UI includes an integration cURL example and a test form.
+
+App Notifier has not been modified or merged into this repository. To show actual delivery events, configure its code or an adapter to emit these events. Heartbeat alert receivers must map the documented alert payload to their own notification API. Email, SMS, and Slack credentials remain in the notification service.
+
+### Keeping your work
+
+Captures, simulator definitions, attempt counters, watches, and the timeline reset on restart/deployment. Browser refreshes preserve server state while the same instance runs. The localhost destination remains browser-local. Working analysis and editor drafts last while their page is open; export workflows, contract baselines, and mock definitions before leaving if you need to retain them. Browser utility inputs and signing secrets are not uploaded or saved to localStorage.
 
 ## Run locally
 
