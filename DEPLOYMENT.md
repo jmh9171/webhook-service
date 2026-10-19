@@ -10,8 +10,8 @@ Live dashboard: https://webhook-inbox-pa23o.sevalla.app
 - Build: repository Dockerfile; production frontend and Node backend served together
 - Health/readiness path: `/healthz`
 - Source: https://github.com/jmh9171/webhook-service, branch `main`
-- Verified deployment: `955a990b-aed7-4fac-baa1-8f5749a1ca52`
-- Deployed application commit: `33ffa841241462e72bc41f3c72eecffa10699b03`
+- Verified deployment: `fd6fa2e0-d5fe-46cc-84c0-5609d178a3ad`
+- Deployed application commit: `76adb22dd1d5abe29d1cb8829a75db28953dcdcf`
 
 The repository is public with the user's explicit approval. Sevalla's private-Git creation/connection returned HTTP 500, including after GitHub repository access was enabled; public Git succeeded. Public-Git pushes do not automatically deploy. Trigger deployments explicitly through Sevalla.
 
@@ -26,3 +26,9 @@ Verified on October 19, 2026: HTTPS health, dashboard/history authentication, bu
 The login and visual redesign passed 15 automated tests and desktop/mobile browser checks. Production verification confirms the public login page has no Basic auth challenge, existing credentials create a secure session, protected APIs reject anonymous requests, webhook capture is unchanged, and sign-out revokes access.
 
 The typography update uses DM Sans for the interface and IBM Plex Mono for URLs, request metadata, and payloads. The production build and desktop/mobile login and inbox checks passed, with no horizontal overflow at 390px. HTTPS checks verified the deployed CSS bundle, existing credentials, protected history, secure session cookies, and sign-out.
+
+Webhook Lab now includes 16 tools in five feature groups: Inspect, Local replay, Hosted simulators, Monitor, and Utilities. No new infrastructure, environment variables, database, or persistent storage was added. Existing login credentials and the capture token were preserved.
+
+Expansion verification: 27 automated tests passed; the final generated-runner changes also passed their focused HTTP tests and the production build. All 16 tool pages and the overview rendered at 1440px and 390px without horizontal overflow. Browser checks covered real login, chaos creation/test calls, mock creation and responses, JSON extraction, payload variations, contract drift, signature verification, workflow generation, replay selection, shared destination persistence, and mobile navigation.
+
+Production HTTPS checks passed for the new frontend bundle, authenticated management APIs, encoded-route protection, a real 503/503/200 chaos sequence, mock pagination, external event ingress, background heartbeat expiry, actual HTTPS alert delivery to a temporary mock receiver, recovery, and sign-out. Temporary verification endpoints were removed. App Notifier itself remains separate; its event emitter and alert receiver can connect using the integration examples in the app.

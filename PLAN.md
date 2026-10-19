@@ -74,3 +74,11 @@ Source: https://github.com/jmh9171/webhook-service. The user explicitly approved
 - Browser checks confirm test capture, cURL copying, saved local replay URL after a page refresh, and a mobile layout without horizontal overflow.
 - Sevalla built the Docker image and completed the production deployment successfully.
 - Live HTTPS verification passed for health, protected dashboard/history, frontend assets, public capture, body download fidelity, duplicate query parameters, and a real cURL replay from the hosted capture to a local HTTP receiver. An actual Postman UI import was not performed.
+
+## Completed expansion: Webhook Lab
+
+The user subsequently authorized all suggested advanced testing tools and the earlier common utilities. The expanded interface has separate feature pages grouped by Inspect, Local replay, Hosted simulators, Monitor, and Utilities. See README.md for the full feature map, limits, and execution model.
+
+The implementation keeps the original no-database, one-instance design. Local scripts perform localhost replay, timed recordings, ordering/duplicate simulations, payload mutation, and multi-step workflows. Server memory holds bounded chaos endpoints, mock APIs, watches, and correlated events. Browser-only tools handle JSON, contracts, signatures, JWTs, encoding, hashes, timestamps, and UUIDs. Download/import support preserves workflows, contract baselines, and mock definitions when needed. App Notifier integration is exposed through external event ingestion and optional alert webhooks; its repository and deployment are unchanged.
+
+The expansion passed 27 automated tests, focused generated-script HTTP checks, the production build, desktop/mobile browser checks, and live Sevalla verification. Deployment details are recorded in DEPLOYMENT.md.
