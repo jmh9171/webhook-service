@@ -2,6 +2,8 @@
 
 A personal webhook capture and local replay tool. One application, an in-memory inbox, no database.
 
+Live dashboard: https://webhook-inbox-pa23o.sevalla.app. Access credentials are saved locally in the ignored `.env.access.json`; see [deployment details](DEPLOYMENT.md).
+
 ## Run locally
 
 Requires Node.js 22.12+ and npm.

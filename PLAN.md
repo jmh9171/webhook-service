@@ -1,6 +1,6 @@
 # Personal webhook capture tool
 
-Status: first version implemented and verified locally, October 19, 2026. Sevalla deployment awaits private credentials and a reachable source repository or container image; no infrastructure provisioned.
+Status: deployed and verified on Sevalla, October 19, 2026. Live dashboard: https://webhook-inbox-pa23o.sevalla.app. See DEPLOYMENT.md for resource details.
 
 ## Confirmed goal
 
@@ -58,7 +58,7 @@ SQLite adds a file lifecycle and database schema without helping the current wor
 3. Package as one Docker application. Deploy one instance to Sevalla with capture/auth settings supplied privately, no database service, and no persistent disk.
 4. Verify public HTTPS capture, dashboard access, Postman replay against a local echo endpoint, and history reset after restarting the app. Confirm the capture URL remains stable.
 
-Select a reachable Git repository or container image before deployment; this workspace currently has no Git remote configured. Check current Sevalla resource sizes, costs, and runtime behavior at deployment time.
+Source: https://github.com/jmh9171/webhook-service. The user explicitly approved making this repository public after Sevalla's private-Git connection returned HTTP 500. The app uses the public-Git source and a Dockerfile build. API keys and generated runtime credentials remain in ignored local files and private hosting settings.
 
 ## References checked during initial planning
 
@@ -72,4 +72,5 @@ Select a reachable Git repository or container image before deployment; this wor
 - TypeScript checks and the production build pass.
 - Production smoke checks pass for password-protected HTML/assets, public capture, and authenticated request history.
 - Browser checks confirm test capture, cURL copying, saved local replay URL after a page refresh, and a mobile layout without horizontal overflow.
-- The Dockerfile is ready, but a local container build was not run because the Docker daemon is unavailable. Production hosting and an actual Postman import will be checked during deployment.
+- Sevalla built the Docker image and completed the production deployment successfully.
+- Live HTTPS verification passed for health, protected dashboard/history, frontend assets, public capture, body download fidelity, duplicate query parameters, and a real cURL replay from the hosted capture to a local HTTP receiver. An actual Postman UI import was not performed.
