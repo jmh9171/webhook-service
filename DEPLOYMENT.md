@@ -10,8 +10,8 @@ Live dashboard: https://webhook-inbox-pa23o.sevalla.app
 - Build: repository Dockerfile; production frontend and Node backend served together
 - Health/readiness path: `/healthz`
 - Source: https://github.com/jmh9171/webhook-service, branch `main`
-- Verified deployment: `778864d9-0810-401b-b15a-d7a3ecbca84a`
-- Deployed application commit: `86ccae006122837e2c46bad3b145810b797926d3`
+- Verified deployment: `955a990b-aed7-4fac-baa1-8f5749a1ca52`
+- Deployed application commit: `33ffa841241462e72bc41f3c72eecffa10699b03`
 
 The repository is public with the user's explicit approval. Sevalla's private-Git creation/connection returned HTTP 500, including after GitHub repository access was enabled; public Git succeeded. Public-Git pushes do not automatically deploy. Trigger deployments explicitly through Sevalla.
 
@@ -24,3 +24,5 @@ Manual deployment: `POST /v3/applications/{app-id}/deployments` with `{"branch":
 Verified on October 19, 2026: HTTPS health, dashboard/history authentication, built frontend assets, unauthenticated public capture, byte-preserving body download, duplicate query parameters, and real local cURL replay of a request captured by the hosted app. Request history resets on restarts/deployments and is capped at 100 entries / 20 MiB of bodies.
 
 The login and visual redesign passed 15 automated tests and desktop/mobile browser checks. Production verification confirms the public login page has no Basic auth challenge, existing credentials create a secure session, protected APIs reject anonymous requests, webhook capture is unchanged, and sign-out revokes access.
+
+The typography update uses DM Sans for the interface and IBM Plex Mono for URLs, request metadata, and payloads. The production build and desktop/mobile login and inbox checks passed, with no horizontal overflow at 390px. HTTPS checks verified the deployed CSS bundle, existing credentials, protected history, secure session cookies, and sign-out.
