@@ -45,13 +45,13 @@ Set these environment variables privately in hosting settings (or a gitignored `
 | Variable | Purpose |
 | --- | --- |
 | `NODE_ENV=production` | Serve built frontend and require dashboard protection. |
-| `ADMIN_USER` | Basic auth username; defaults to `owner`. |
+| `ADMIN_USER` | Login username; defaults to `owner`. |
 | `ADMIN_PASSWORD` | Dashboard password, at least 16 characters. |
 | `CAPTURE_TOKEN` | Unguessable URL token, at least 20 characters; keep stable across deployments. |
 | `PORT` | Listening port; defaults to 3000. |
 | `HOST` | Defaults to `0.0.0.0` in production and `127.0.0.1` in development. |
 
-Use HTTPS at the hosting proxy for dashboard authentication. Public webhook routes do not require dashboard credentials. Inspection, downloads, and history deletion require authentication. Health checks use `/healthz`. Request bodies and credentials are not logged by the application; hosting access logs may still record URLs.
+The app has a username/password login page and a sign-out control. Sessions use HttpOnly, SameSite=Strict cookies with Secure enabled in production. They expire after 24 hours, on sign-out, or when the server restarts. Use HTTPS at the hosting proxy for dashboard authentication. Public webhook routes do not require dashboard credentials. Inspection, downloads, and history deletion require authentication. Health checks use `/healthz`. Request bodies and credentials are not logged by the application; hosting access logs may still record URLs.
 
 The included multi-stage Dockerfile builds the frontend/backend, runs as the Node user, and includes a health check. On Sevalla, deploy from this Dockerfile with **one web instance**, port 3000, no persistent volume, and no database. Provisioning requires a Git repository or container image reachable by Sevalla; the API key does not automatically authorize a private Git repository.
 

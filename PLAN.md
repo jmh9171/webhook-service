@@ -13,7 +13,7 @@ Receive webhook requests at a public URL, inspect them in a browser, then copy a
 - Run exactly one application instance. Each instance has its own memory, so horizontal scaling is outside this design.
 - A restart, crash, or deployment clears request history. Refreshing or closing the browser does not clear server memory while the same process remains running.
 - Use a stable capture token supplied through an environment variable so the webhook URL survives restarts even though history does not.
-- Protect the dashboard and inspection APIs with simple HTTP Basic authentication over HTTPS, configured through private environment variables. No user accounts, registration, or session database. The capture URL stays accessible to webhook senders.
+- Use a dedicated username/password login page with in-memory sessions and an explicit sign-out action. Session cookies are HttpOnly, SameSite=Strict, and Secure in production, expiring after 24 hours or server restart. Credentials remain private environment variables. No registration or session database. The capture URL stays accessible to webhook senders.
 
 ## First version
 
@@ -53,7 +53,7 @@ SQLite adds a file lifecycle and database schema without helping the current wor
 
 ## Implementation and deployment
 
-1. Scaffold TypeScript, React/Vite, and Fastify; add the memory buffer, capture endpoint, and simple dashboard authentication.
+1. Scaffold TypeScript, React/Vite, and Fastify; add the memory buffer, capture endpoint, and the login page and session authentication.
 2. Build the inspector and cURL export. Verify public capture, private inspection, raw body fidelity, local replay, limits/eviction, and clearing history.
 3. Package as one Docker application. Deploy one instance to Sevalla with capture/auth settings supplied privately, no database service, and no persistent disk.
 4. Verify public HTTPS capture, dashboard access, Postman replay against a local echo endpoint, and history reset after restarting the app. Confirm the capture URL remains stable.
@@ -68,7 +68,7 @@ Source: https://github.com/jmh9171/webhook-service. The user explicitly approved
 
 ## Completed verification
 
-- All 11 automated tests pass, including actual cURL replays of captured text and binary payloads to a local HTTP receiver.
+- All 15 automated tests pass, including actual cURL replays of captured text and binary payloads to a local HTTP receiver.
 - TypeScript checks and the production build pass.
 - Production smoke checks pass for password-protected HTML/assets, public capture, and authenticated request history.
 - Browser checks confirm test capture, cURL copying, saved local replay URL after a page refresh, and a mobile layout without horizontal overflow.

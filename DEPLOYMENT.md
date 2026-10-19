@@ -15,7 +15,7 @@ Live dashboard: https://webhook-inbox-pa23o.sevalla.app
 
 The repository is public with the user's explicit approval. Sevalla's private-Git creation/connection returned HTTP 500, including after GitHub repository access was enabled; public Git succeeded. Public-Git pushes do not automatically deploy. Trigger deployments explicitly through Sevalla.
 
-The dashboard username is `owner`. The generated password and capture token are saved in the local **gitignored** `.env.access.json` and in Sevalla's runtime variables. The Sevalla API token is in the local **gitignored** `.env`; it is not part of the deployed application's configuration. Do not commit either credentials file.
+The dashboard now uses a dedicated login page, an explicit sign-out control, and 24-hour in-memory sessions. Sessions expire on sign-out or server restart. The dashboard username is `owner`. The generated password and capture token are saved in the local **gitignored** `.env.access.json` and in Sevalla's runtime variables. The Sevalla API token is in the local **gitignored** `.env`; it is not part of the deployed application's configuration. Do not commit either credentials file.
 
 The app's environment variables are runtime-only: `NODE_ENV`, `PORT`, `ADMIN_USER`, `ADMIN_PASSWORD`, and `CAPTURE_TOKEN`. Keep the capture token stable when redeploying so existing webhook URLs continue working. The local replay destination is set and remembered separately by each browser.
 

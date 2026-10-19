@@ -7,7 +7,7 @@ const captureToken = process.env.CAPTURE_TOKEN || (production ? '' : 'local');
 const adminPassword = process.env.ADMIN_PASSWORD;
 if (production && (!captureToken || !adminPassword)) throw new Error('Production requires CAPTURE_TOKEN and ADMIN_PASSWORD. Supply them privately in hosting settings.');
 if (production && (captureToken.length < 20 || adminPassword!.length < 16)) throw new Error('Use at least 20 characters for CAPTURE_TOKEN and 16 for ADMIN_PASSWORD.');
-const app = await buildApp({ captureToken, adminUser: process.env.ADMIN_USER, adminPassword, clientDirectory: production ? fileURLToPath(new URL('../client', import.meta.url)) : undefined });
+const app = await buildApp({ captureToken, adminUser: process.env.ADMIN_USER, adminPassword, secureCookies: production, clientDirectory: production ? fileURLToPath(new URL('../client', import.meta.url)) : undefined });
 
 if (!production) {
   const { createServer } = await import('vite');

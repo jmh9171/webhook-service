@@ -4,11 +4,15 @@ import { buildApp } from '../server/app.js';
 import { limits, RequestStore, requestDetail } from '../server/store.js';
 
 const options = { captureToken: 'capture-test-fixture', adminUser: 'owner', adminPassword: 'test-only-password' };
-const authorization = `Basic ${Buffer.from(`${options.adminUser}:${options.adminPassword}`).toString('base64')}`;
-const auth = { authorization };
+async function signIn(app: Awaited<ReturnType<typeof buildApp>>) {
+  const response = await app.inject({ method: 'POST', url: '/api/auth/login', headers: { 'x-inbox-action': 'login' }, payload: { username: options.adminUser, password: options.adminPassword } });
+  assert.equal(response.statusCode, 200);
+  return { cookie: String(response.headers['set-cookie']).split(';')[0] };
+}
 
 test('public capture stores original JSON bytes, duplicates in the query, and incoming headers', async (t) => {
   const app = await buildApp(options); t.after(() => app.close());
+  const auth = await signIn(app);
   const body = '{\n  "event": "payment.created", "value": "O\'Reilly 🚀"\n}\n';
   const received = await app.inject({ method: 'POST', url: `/hooks/${options.captureToken}/payments?tag=a&tag=b&signed=a%2Bb`, headers: { 'content-type': 'application/json', 'x-signature': 'fixture' }, payload: body });
   assert.equal(received.statusCode, 200);
@@ -25,15 +29,20 @@ test('public capture stores original JSON bytes, duplicates in the query, and in
 
 test('authentication protects every inspection endpoint; a capture token is not a read credential', async (t) => {
   const app = await buildApp(options); t.after(() => app.close());
-  for (const url of ['/', '/api/inbox', '/api/requests/unknown', '/api/requests/unknown/body']) assert.equal((await app.inject({ url })).statusCode, 401);
+  const auth = await signIn(app);
+  for (const url of ['/api/inbox', '/api/requests/unknown', '/api/requests/unknown/body']) assert.equal((await app.inject({ url })).statusCode, 401);
   assert.equal((await app.inject({ method: 'DELETE', url: '/api/requests' })).statusCode, 401);
   assert.equal((await app.inject({ url: '/api/inbox', headers: { authorization: `Bearer ${options.captureToken}` } })).statusCode, 401);
+  const frontend = await app.inject({ url: '/' });
+  assert.notEqual(frontend.statusCode, 401);
+  assert.equal(frontend.headers['www-authenticate'], undefined);
   assert.equal((await app.inject({ url: '/healthz' })).statusCode, 200);
   assert.equal((await app.inject({ method: 'POST', url: '/hooks/wrong', payload: 'x', headers: { 'content-type': 'text/plain' } })).statusCode, 404);
 });
 
 test('capture handles malformed JSON, empty requests, common methods, and byte-preserving binary download', async (t) => {
   const app = await buildApp(options); t.after(() => app.close());
+  const auth = await signIn(app);
   const url = `/hooks/${options.captureToken}`;
   assert.equal((await app.inject({ method: 'POST', url, headers: { 'content-type': 'application/json' }, payload: '{broken json' })).statusCode, 200);
   for (const method of ['GET', 'HEAD', 'OPTIONS', 'DELETE', 'PUT', 'PATCH'] as const) {
@@ -58,6 +67,7 @@ test('capture handles malformed JSON, empty requests, common methods, and byte-p
 
 test('oversized bodies and URLs are rejected, and clearing requires an explicit same-origin action', async (t) => {
   const app = await buildApp(options); t.after(() => app.close());
+  const auth = await signIn(app);
   const url = `/hooks/${options.captureToken}`;
   assert.equal((await app.inject({ method: 'POST', url, headers: { 'content-type': 'text/plain' }, payload: 'x'.repeat(limits.maxBodyBytes + 1) })).statusCode, 413);
   assert.equal((await app.inject({ url: `${url}?${'x'.repeat(8192)}` })).statusCode, 414);

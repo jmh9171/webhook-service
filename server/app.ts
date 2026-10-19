@@ -1,15 +1,16 @@
 import Fastify from 'fastify';
 import staticFiles from '@fastify/static';
-import { createHash, timingSafeEqual } from 'node:crypto';
 import { resolve } from 'node:path';
 import { limits, RequestStore, requestDetail } from './store.js';
 import type { HeaderPair } from '../shared/types.js';
+import { cookieHeader, readSession, secretsEqual as equal, Sessions } from './auth.js';
 
-export interface AppOptions { captureToken: string; adminUser?: string; adminPassword?: string; clientDirectory?: string }
-const equal = (left: string, right: string) => timingSafeEqual(createHash('sha256').update(left).digest(), createHash('sha256').update(right).digest());
+export interface AppOptions { captureToken: string; adminUser?: string; adminPassword?: string; clientDirectory?: string; secureCookies?: boolean }
 
 export async function buildApp(options: AppOptions) {
   const store = new RequestStore();
+  const sessions = new Sessions();
+  const authenticated = (cookie?: string) => !options.adminPassword || sessions.valid(readSession(cookie));
   const app = Fastify({ logger: false, bodyLimit: limits.maxBodyBytes, requestTimeout: 30000, routerOptions: { maxParamLength: 256 }, http: { maxHeaderSize: 16384 } });
   const capture = /^\/hooks(?:\/|$)/;
 
@@ -18,27 +19,47 @@ export async function buildApp(options: AppOptions) {
     reply.header('X-Content-Type-Options', 'nosniff');
     reply.header('Referrer-Policy', 'no-referrer');
     reply.header('X-Frame-Options', 'DENY');
-    const path = (request.raw.url ?? '/').split('?')[0];
+    // Check the matched route, not just the raw URL: encoded static path
+    // segments must not be able to bypass API authentication or CSRF checks.
+    const path = request.routeOptions.url ?? (request.raw.url ?? '/').split('?')[0];
     if ((request.raw.url ?? '').length > 8192) return reply.code(414).send({ error: 'URL exceeds 8 KiB limit' });
     if (capture.test(path) || path === '/healthz') return;
-    if (options.adminPassword) {
-      let credentials = '';
-      const authorization = request.headers.authorization;
-      if (authorization?.startsWith('Basic ')) credentials = Buffer.from(authorization.slice(6), 'base64').toString('utf8');
-      if (!equal(credentials, `${options.adminUser ?? 'owner'}:${options.adminPassword}`)) {
-        return reply.header('WWW-Authenticate', 'Basic realm="Webhook Inbox", charset="UTF-8"').code(401).send({ error: 'Sign in to view your inbox' });
-      }
-    }
+    if (path === '/api/auth/login' && request.method === 'POST' && !/^application\/json(?:;|$)/i.test(request.headers['content-type'] ?? '')) return reply.code(415).send({ error: 'Send login credentials as JSON' });
+    // The frontend is public so it can render the login page. Only the API holds private data.
+    if (path.startsWith('/api/') && !['/api/auth/session', '/api/auth/login'].includes(path) && !authenticated(request.headers.cookie)) return reply.code(401).send({ error: 'Sign in to view your inbox' });
     // A custom header forces cross-origin browser callers to preflight; no CORS is enabled on management routes.
-    if (request.method === 'DELETE' && request.headers['x-inbox-action'] !== 'clear') return reply.code(403).send({ error: 'Missing action header' });
+    const action = path === '/api/auth/login' ? 'login' : path === '/api/auth/logout' ? 'logout' : request.method === 'DELETE' ? 'clear' : null;
+    if (action && request.headers['x-inbox-action'] !== action) return reply.code(403).send({ error: 'Missing action header' });
     const origin = request.headers.origin;
-    if (request.method === 'DELETE' && origin) {
+    if (action && origin) {
       try { if (new URL(origin).host !== request.headers.host) return reply.code(403).send({ error: 'Cross-origin action rejected' }); }
       catch { return reply.code(403).send({ error: 'Invalid origin' }); }
     }
   });
 
   app.get('/healthz', async () => ({ status: 'ok' }));
+  app.get('/api/auth/session', async (request) => {
+    const signedIn = authenticated(request.headers.cookie);
+    return { authenticated: signedIn, username: signedIn ? options.adminUser ?? 'owner' : null, loginRequired: !!options.adminPassword };
+  });
+  app.post<{ Body: { username: string; password: string } }>('/api/auth/login', {
+    bodyLimit: 4096,
+    schema: { body: { type: 'object', required: ['username', 'password'], additionalProperties: false, properties: { username: { type: 'string', minLength: 1, maxLength: 255 }, password: { type: 'string', minLength: 1, maxLength: 1024 } } } },
+  }, async (request, reply) => {
+    if (sessions.throttled()) return reply.header('Retry-After', '60').code(429).send({ error: 'Too many attempts. Wait a minute and try again.' });
+    const userMatches = equal(request.body.username, options.adminUser ?? 'owner');
+    const passwordMatches = equal(request.body.password, options.adminPassword ?? '');
+    if (options.adminPassword && (!userMatches || !passwordMatches)) {
+      sessions.failed();
+      return reply.code(401).send({ error: 'Those details didn’t match. Please try again.' });
+    }
+    sessions.revoke(readSession(request.headers.cookie));
+    return reply.header('Set-Cookie', cookieHeader(sessions.create(), !!options.secureCookies)).send({ authenticated: true, username: options.adminUser ?? 'owner' });
+  });
+  app.post('/api/auth/logout', async (request, reply) => {
+    sessions.revoke(readSession(request.headers.cookie));
+    return reply.header('Set-Cookie', cookieHeader('', !!options.secureCookies, true)).send({ authenticated: false });
+  });
   app.get('/api/inbox', async () => ({ requests: store.list(), instanceId: store.instanceId, capturePath: `/hooks/${options.captureToken}`, limits, storedBytes: store.storedBytes }));
   app.delete('/api/requests', async () => { store.clear(); return { cleared: true }; });
   app.get<{ Params: { id: string } }>('/api/requests/:id', async (request, reply) => {
