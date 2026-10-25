@@ -5,6 +5,7 @@ import {
   api,
   Code,
   Copy,
+  download,
   Empty,
   ErrorBox,
   Field,
@@ -474,23 +475,7 @@ export function MockPage() {
               type="button"
               className="button"
               onClick={() => {
-                const a = document.createElement("a");
-                const url = URL.createObjectURL(
-                  new Blob(
-                    [
-                      JSON.stringify(
-                        { version: 1, kind: "mock-api", name, routes },
-                        null,
-                        2,
-                      ),
-                    ],
-                    { type: "application/json" },
-                  ),
-                );
-                a.href = url;
-                a.download = "mock-api.json";
-                a.click();
-                setTimeout(() => URL.revokeObjectURL(url), 1000);
+                download('mock-api.json', JSON.stringify({ version: 1, kind: 'mock-api', name, routes }, null, 2), 'application/json');
               }}
             >
               Download definition

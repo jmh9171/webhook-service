@@ -8,18 +8,20 @@ const login = { method: 'POST' as const, url: '/api/auth/login', headers: { 'x-i
 
 test('login creates an HttpOnly secure session; restore and logout revoke access without a browser auth challenge', async (t) => {
   const app = await buildApp(options); t.after(() => app.close());
-  assert.deepEqual((await app.inject({ url: '/api/auth/session' })).json(), { authenticated: false, username: null, loginRequired: true });
+  assert.deepEqual((await app.inject({ url: '/api/auth/session' })).json(), { authenticated: false, username: null, userId: null, loginRequired: true });
   const failed = await app.inject({ ...login, payload: { username: 'owner', password: 'incorrect' } });
   assert.equal(failed.statusCode, 401);
   assert.equal(failed.headers['www-authenticate'], undefined);
   assert.equal(failed.headers['set-cookie'], undefined);
   const response = await app.inject(login);
   assert.equal(response.statusCode, 200);
+  assert.equal(response.json().userId, 'webhook-lab:admin');
   const setCookie = String(response.headers['set-cookie']);
   for (const attribute of ['HttpOnly', 'Secure', 'SameSite=Strict', 'Path=/', 'Max-Age=86400']) assert.ok(setCookie.includes(attribute));
   assert.ok(!response.body.includes(options.adminPassword));
   const cookie = setCookie.split(';')[0];
   assert.equal((await app.inject({ url: '/api/auth/session', headers: { cookie } })).json().authenticated, true);
+  assert.equal((await app.inject({ url: '/api/auth/session', headers: { cookie } })).json().userId, response.json().userId);
   assert.equal((await app.inject({ url: '/api/inbox', headers: { cookie } })).statusCode, 200);
   assert.equal((await app.inject({ url: '/api/inbox', headers: { cookie: 'inbox_session=forged' } })).statusCode, 401);
   for (const url of ['/a%70i/inbox', '/%61pi/inbox', '/api/%69nbox']) assert.equal((await app.inject({ url })).statusCode, 401, `encoded route must remain protected: ${url}`);
@@ -70,4 +72,16 @@ test('in-memory sessions expire, are revocable, and have a fixed capacity', () =
   assert.equal(sessions.throttled(), true);
   now += 60000;
   assert.equal(sessions.throttled(), false);
+});
+
+test('the browser subject ID stays internal when the display username is an email', async (t) => {
+  const app = await buildApp({ ...options, adminUser: 'private@example.test' });
+  t.after(() => app.close());
+  const response = await app.inject({ ...login, payload: { username: 'private@example.test', password: options.adminPassword } });
+  assert.equal(response.statusCode, 200);
+  assert.equal(response.json().userId, 'webhook-lab:admin');
+  const cookie = String(response.headers['set-cookie']).split(';')[0];
+  const session = (await app.inject({ url: '/api/auth/session', headers: { cookie } })).json();
+  assert.equal(session.userId, 'webhook-lab:admin');
+  assert.equal(session.username, 'private@example.test');
 });

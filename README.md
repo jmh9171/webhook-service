@@ -101,9 +101,9 @@ See [PLAN.md](PLAN.md) for scope and deployment steps.
 
 ## Signal analytics
 
-The backend sends internal usage events to `https://clonalytics-staging-kpjmx.sevalla.app` using Signal's copied server SDK. Set `SIGNAL_API_KEY` privately in the runtime environment (or the ignored local `.env`). Missing or blank keys disable tracking. The key stays on the backend; there is no browser analytics client.
+The backend sends internal usage events to `https://clonalytics-staging-kpjmx.sevalla.app` using Signal's copied server SDK. Set `SIGNAL_API_KEY` privately in the runtime environment (or the ignored local `.env`). Missing or blank keys disable server tracking. The server key stays on the backend.
 
-Only successful backend actions are tracked: sign-in/out, accepted webhook and external timeline ingress, request inspection/body downloads, inbox clearing, chaos endpoint creation/reset/deletion, mock API creation/deletion, heartbeat watch creation/deletion/alert tests, and timeline clearing. Browser-only tools and replay script execution do not emit events. Health checks, polling, rejected requests, simulator traffic, and recurring heartbeat pings do not emit events.
+The server tracks successful backend actions: sign-in/out, accepted webhook and external timeline ingress, request inspection/body downloads, inbox clearing, chaos endpoint creation/reset/deletion, mock API creation/deletion, heartbeat watch creation/deletion/alert tests, and timeline clearing. Local replay script execution does not emit events. Health checks, polling, rejected requests, simulator traffic, and recurring heartbeat pings do not emit events.
 
 Every event includes only `method` and `status_code`. Subjects are the fixed pseudonymous internal IDs `webhook-lab:admin` for dashboard actions and `webhook-lab:collector` for ingress; sender traffic is not attributed to the admin. No usernames, payloads, headers, URLs, query strings, endpoint IDs, correlation IDs, user-entered labels, or credentials are sent. Each accepted HTTP action gets an event ID unique across restarts and stable across SDK delivery retries. Repeated incoming webhook deliveries count as separate accepted captures.
 
@@ -129,3 +129,25 @@ timeline_cleared
 ```
 
 Consent is enabled explicitly for this internal server integration. Captures queue in bounded memory and flush every 10 seconds and on graceful shutdown. Network timeouts, retries, queue limits, and a shutdown deadline keep Signal outages from failing user requests or preventing shutdown. Events can be lost on crashes, queue overflow, or prolonged outages; this is usage analytics rather than an audit log. Diagnostics contain only bounded codes, counts, and HTTP statuses.
+
+### Browser analytics
+
+The frontend uses the copied Clonalytics browser SDK directly, with `VITE_ANALYTICS_URL=https://clonalytics-staging-kpjmx.sevalla.app` and `SIGNAL_API_KEY_FRONTEND` set to the project's public **`pk_` browser key**. Vite maps only this exact public alias to `VITE_ANALYTICS_KEY`; an explicit `VITE_ANALYTICS_KEY` takes precedence. Either value missing disables browser analytics silently. Server keys and other non-`pk_` values are refused by both the build configuration and browser wrapper. The Vite environment prefix is never broadened to expose other `SIGNAL_` variables. Never copy `SIGNAL_API_KEY` or an admin token into a `VITE_` variable.
+
+Set these values in the ignored `.env` for `npm run dev`. Development runs at `http://localhost:3000` by default. The collector's Allowed browser origins must include the exact scheme, host, and port used by the browser, plus the production origin `https://webhook-inbox-pa23o.sevalla.app`. An `ORIGIN_NOT_ALLOWED` response requires adding that origin in the Clonalytics dashboard.
+
+Vite embeds these public values at **build time**. For Docker/Sevalla builds supply the `VITE_ANALYTICS_URL` and `SIGNAL_API_KEY_FRONTEND` (or `VITE_ANALYTICS_KEY`) build arguments; changing only runtime variables does not change the built frontend. Rebuild to change browser configuration. Keep the existing server key runtime-only.
+
+Browser consent is enabled by this internal tool's policy. The shared wrapper queues in memory and flushes every 10 seconds and when the page becomes hidden. Requests go directly to `/api/capture/browser` with credentials omitted and only `content-type` and `x-project-key`. Analytics failures never block the UI. No cookies or persistent browser storage are added for analytics. A signed-in session exposes the fixed internal user ID `webhook-lab:admin`; logout or session expiry resets identity for future events. Each queued event retains the identity it had when captured, so login-screen views stay anonymous and actions just before logout keep their original attribution.
+
+Add these **additional** names and property keys to the project's existing allowlists; retain the server names and keys above if both keys use the same project:
+
+| Browser event | Property keys | Values |
+| --- | --- | --- |
+| `page_viewed` | `path` | `/login`, `/`, or `/#tool=<fixed tool ID>`; no raw URL, query, or arbitrary hash values |
+| `feature_opened` | `feature` | One of the 16 fixed tool IDs |
+| `export_downloaded` | `format` | `json`, `script`, or `text` |
+
+Tool IDs are `inbox`, `compare`, `contracts`, `signatures`, `replay`, `disorder`, `mutation`, `workflows`, `chaos`, `mocks`, `timeline`, `heartbeat`, `json`, `jwt`, `encoding`, `time`. Export tracking records successful browser download dispatch for generated scripts, workflows, payload variations, contracts, and mock definitions; the browser cannot confirm that a file was saved. Exports send no filenames, destinations, record contents, or free-text input. Backend-served body downloads remain tracked by the server. Hosted mutations keep their existing server events rather than adding browser duplicates.
+
+To verify with a configured key on an allowed dev origin, navigate between tools and download a workflow definition. In browser Network tools, expect an `OPTIONS` preflight with 204 and a `POST` with 200 to `/api/capture/browser`, then confirm the events in Clonalytics Events with source **Browser**. `401 INVALID_PROJECT_KEY` means the wrong key, `403 ORIGIN_NOT_ALLOWED` means an origin is missing, and `400 INVALID_BATCH` can mean the event allowlist needs these names. The SDK retries 429/503 responses automatically; no proxy or origin workaround is used.

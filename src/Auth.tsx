@@ -1,25 +1,34 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import type { FormEvent, ReactNode } from 'react';
 import { ArrowRight, Check, Eye, EyeOff, Loader2, LockKeyhole, Webhook } from 'lucide-react';
+import { identify, resetIdentity, track } from './lib/analytics';
 
-interface Session { authenticated: boolean; username: string | null; loginRequired: boolean }
+interface Session { authenticated: boolean; username: string | null; userId: string | null; loginRequired: boolean }
 
 export function SessionGate({ children }: { children: (username: string, signOut: () => Promise<void>, loginRequired: boolean) => ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
+  const authRevision = useRef(0);
   const [error, setError] = useState('');
   const load = useCallback(async () => {
+    const revision = ++authRevision.current;
     try {
       const response = await fetch('/api/auth/session', { cache: 'no-store' });
       if (!response.ok) throw new Error();
-      setSession(await response.json()); setError('');
-    } catch { setError('Couldn’t reach your inbox. Please try again.'); }
+      const next: Session = await response.json();
+      if (revision !== authRevision.current) return;
+      if (next.authenticated && next.userId) identify(next.userId);
+      else resetIdentity();
+      setSession(next); setError('');
+    } catch { if (revision === authRevision.current) setError('Couldn’t reach your inbox. Please try again.'); }
   }, []);
-  useEffect(() => { void load(); const expired = () => setSession({ authenticated: false, username: null, loginRequired: true }); window.addEventListener('inbox:unauthorized', expired); return () => window.removeEventListener('inbox:unauthorized', expired); }, [load]);
+  useEffect(() => { void load(); const expired = () => { authRevision.current++; resetIdentity(); setSession({ authenticated: false, username: null, userId: null, loginRequired: true }); }; window.addEventListener('inbox:unauthorized', expired); return () => { authRevision.current++; window.removeEventListener('inbox:unauthorized', expired); }; }, [load]);
 
   async function signOut() {
     const response = await fetch('/api/auth/logout', { method: 'POST', headers: { 'X-Inbox-Action': 'logout' } });
     if (!response.ok && response.status !== 401) throw new Error('Couldn’t sign out. Please try again.');
-    setSession({ authenticated: false, username: null, loginRequired: true });
+    authRevision.current++;
+    resetIdentity();
+    setSession({ authenticated: false, username: null, userId: null, loginRequired: true });
   }
 
   if (!session) return <div className="auth-loading"><Webhook size={30} /><p>{error || 'Opening your inbox…'}</p>{error ? <button className="button dark" onClick={() => void load()}>Try again<ArrowRight size={15} /></button> : <Loader2 size={18} className="spin" />}</div>;
@@ -28,6 +37,12 @@ export function SessionGate({ children }: { children: (username: string, signOut
 }
 
 function Login({ onSignedIn }: { onSignedIn: () => void }) {
+  const viewed = useRef(false);
+  useEffect(() => {
+    if (viewed.current) return;
+    viewed.current = true;
+    track('page_viewed', { path: '/login' });
+  }, []);
   const [username, setUsername] = useState('owner');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);

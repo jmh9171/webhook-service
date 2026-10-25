@@ -3,6 +3,7 @@ import { Check, Copy as CopyIcon, Download, RefreshCw } from "lucide-react";
 import type { CapturedRequest, InboxSnapshot, LabState } from "../shared/types";
 import type { ReplayRecord } from "../shared/lab";
 import { fromCapture } from "../shared/lab";
+import { track } from './lib/analytics';
 
 export async function api<T>(
   path: string,
@@ -83,8 +84,13 @@ export function download(name: string, value: string, type = "text/plain") {
   const anchor = document.createElement("a");
   anchor.href = url;
   anchor.download = name;
-  anchor.click();
-  setTimeout(() => URL.revokeObjectURL(url), 1000);
+  try {
+    anchor.click();
+    // This records successful download dispatch, not filesystem completion.
+    track('export_downloaded', { format: type === 'application/json' ? 'json' : type === 'text/javascript' ? 'script' : 'text' });
+  } finally {
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }
 }
 export function toBase64(bytes: Uint8Array) {
   let str = "";

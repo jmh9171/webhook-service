@@ -9,6 +9,7 @@ import { randomUUID } from 'node:crypto';
 import type { SignalAnalytics } from './signal.js';
 
 export interface AppOptions { captureToken: string; adminUser?: string; adminPassword?: string; clientDirectory?: string; secureCookies?: boolean; analytics?: SignalAnalytics }
+const adminSubjectId = 'webhook-lab:admin';
 
 // Only predefined route templates and properties enter analytics. Never derive an
 // event name, subject, or property from webhook contents or user-entered data.
@@ -45,7 +46,7 @@ export async function buildApp(options: AppOptions) {
     if (!name) return;
     try {
       options.analytics.capture(name, { method: request.method, status_code: reply.statusCode }, {
-        distinctId: ingress ? 'webhook-lab:collector' : 'webhook-lab:admin',
+        distinctId: ingress ? 'webhook-lab:collector' : adminSubjectId,
         // Stable for this accepted action and all SDK transport retries, unique
         // across process restarts. Incoming sender IDs never enter analytics.
         eventId: `webhook-lab:${analyticsInstance}:${request.id}:${name}`,
@@ -83,7 +84,7 @@ export async function buildApp(options: AppOptions) {
   app.get('/healthz', async () => ({ status: 'ok' }));
   app.get('/api/auth/session', async (request) => {
     const signedIn = authenticated(request.headers.cookie);
-    return { authenticated: signedIn, username: signedIn ? options.adminUser ?? 'owner' : null, loginRequired: !!options.adminPassword };
+    return { authenticated: signedIn, username: signedIn ? options.adminUser ?? 'owner' : null, userId: signedIn ? adminSubjectId : null, loginRequired: !!options.adminPassword };
   });
   app.post<{ Body: { username: string; password: string } }>('/api/auth/login', {
     bodyLimit: 4096,
@@ -97,7 +98,7 @@ export async function buildApp(options: AppOptions) {
       return reply.code(401).send({ error: 'Those details didn’t match. Please try again.' });
     }
     sessions.revoke(readSession(request.headers.cookie));
-    return reply.header('Set-Cookie', cookieHeader(sessions.create(), !!options.secureCookies)).send({ authenticated: true, username: options.adminUser ?? 'owner' });
+    return reply.header('Set-Cookie', cookieHeader(sessions.create(), !!options.secureCookies)).send({ authenticated: true, username: options.adminUser ?? 'owner', userId: adminSubjectId });
   });
   app.post('/api/auth/logout', async (request, reply) => {
     sessions.revoke(readSession(request.headers.cookie));

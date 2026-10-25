@@ -3,6 +3,9 @@ WORKDIR /app
 COPY package*.json ./
 RUN npm ci
 COPY . .
+ARG VITE_ANALYTICS_URL
+ARG VITE_ANALYTICS_KEY
+ARG SIGNAL_API_KEY_FRONTEND
 RUN npm run build
 
 FROM node:22-alpine AS runtime

@@ -1,4 +1,4 @@
-import { useEffect, useState, type ComponentType } from "react";
+import { useEffect, useRef, useState, type ComponentType } from "react";
 import {
   Activity,
   ArrowUpRight,
@@ -34,6 +34,7 @@ import { ChaosPage, HeartbeatPage, MockPage } from "./features/Hosted";
 import { TimelinePage } from "./features/Timeline";
 import { ErrorBox, Note, useInbox, useLab } from "./lab-ui";
 import "./lab.css";
+import { track } from "./lib/analytics";
 
 type Icon = ComponentType<{ size?: number; strokeWidth?: number }>;
 interface Tool {
@@ -222,6 +223,14 @@ function Workspace({
     [menu, setMenu] = useState(false),
     [failure, setFailure] = useState(""),
     [busy, setBusy] = useState(false);
+  const lastViewedPage = useRef<string | null>(null);
+  useEffect(() => {
+    if (lastViewedPage.current === page) return;
+    lastViewedPage.current = page;
+    // `page` has already been normalized against the fixed tool catalog.
+    track('page_viewed', { path: page === 'home' ? '/' : `/#tool=${page}` });
+    if (page !== 'home') track('feature_opened', { feature: page });
+  }, [page]);
   useEffect(() => {
     const change = () => {
       setPage(readPage());
