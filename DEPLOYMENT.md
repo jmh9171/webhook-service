@@ -19,6 +19,8 @@ The dashboard now uses a dedicated login page, an explicit sign-out control, and
 
 The app's environment variables are runtime-only: `NODE_ENV`, `PORT`, `ADMIN_USER`, `ADMIN_PASSWORD`, and `CAPTURE_TOKEN`. Keep the capture token stable when redeploying so existing webhook URLs continue working. The local replay destination is set and remembered separately by each browser.
 
+Signal analytics additionally uses optional runtime-only `SIGNAL_API_KEY`, a server collector key for this app's Signal project. Copy it privately from the existing secret store into Sevalla's runtime variables when deploying this integration; local `.env` values are not automatically installed in Sevalla. Never expose it as a `VITE_` variable or build argument. The collector is `https://clonalytics-staging-kpjmx.sevalla.app`; configure the event/property allowlists documented in [README.md](README.md#signal-analytics). Without a key, the app runs with analytics disabled.
+
 Manual deployment: `POST /v3/applications/{app-id}/deployments` with `{"branch":"main"}`. To restart the existing build, use `{"is_restart":true}` instead. To roll back after a future deployment, use `POST /v3/applications/{app-id}/deployments/rollback`. All operations require the Sevalla API key in a bearer header; load it privately rather than inserting it in command arguments or source files.
 
 Verified on October 19, 2026: HTTPS health, dashboard/history authentication, built frontend assets, unauthenticated public capture, byte-preserving body download, duplicate query parameters, and real local cURL replay of a request captured by the hosted app. Request history resets on restarts/deployments and is capped at 100 entries / 20 MiB of bodies.

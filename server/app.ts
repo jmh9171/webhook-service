@@ -5,8 +5,29 @@ import { resolve } from 'node:path';
 import { limits, RequestStore, requestDetail } from './store.js';
 import type { HeaderPair } from '../shared/types.js';
 import { cookieHeader, readSession, secretsEqual as equal, Sessions } from './auth.js';
+import { randomUUID } from 'node:crypto';
+import type { SignalAnalytics } from './signal.js';
 
-export interface AppOptions { captureToken: string; adminUser?: string; adminPassword?: string; clientDirectory?: string; secureCookies?: boolean }
+export interface AppOptions { captureToken: string; adminUser?: string; adminPassword?: string; clientDirectory?: string; secureCookies?: boolean; analytics?: SignalAnalytics }
+
+// Only predefined route templates and properties enter analytics. Never derive an
+// event name, subject, or property from webhook contents or user-entered data.
+const analyticsActions: Record<string, string> = {
+  'POST /api/auth/login': 'admin_signed_in',
+  'POST /api/auth/logout': 'admin_signed_out',
+  'DELETE /api/requests': 'inbox_cleared',
+  'GET /api/requests/:id': 'request_inspected',
+  'GET /api/requests/:id/body': 'request_body_downloaded',
+  'POST /api/lab/chaos': 'chaos_endpoint_created',
+  'POST /api/lab/chaos/:id/reset': 'chaos_endpoint_reset',
+  'DELETE /api/lab/chaos/:id': 'chaos_endpoint_deleted',
+  'POST /api/lab/mocks': 'mock_api_created',
+  'DELETE /api/lab/mocks/:id': 'mock_api_deleted',
+  'POST /api/lab/watchdogs': 'heartbeat_watch_created',
+  'DELETE /api/lab/watchdogs/:id': 'heartbeat_watch_deleted',
+  'POST /api/lab/watchdogs/:id/test-alert': 'heartbeat_alert_tested',
+  'DELETE /api/lab/events': 'timeline_cleared',
+};
 
 export async function buildApp(options: AppOptions) {
   const store = new RequestStore();
@@ -14,6 +35,27 @@ export async function buildApp(options: AppOptions) {
   const authenticated = (cookie?: string) => !options.adminPassword || sessions.valid(readSession(cookie));
   const app = Fastify({ logger: false, bodyLimit: limits.maxBodyBytes, requestTimeout: 30000, routerOptions: { maxParamLength: 256 }, http: { maxHeaderSize: 16384 } });
   const capture = /^\/hooks(?:\/|$)/;
+  const analyticsInstance = randomUUID();
+
+  app.addHook('onResponse', async (request, reply) => {
+    if (!options.analytics || reply.statusCode < 200 || reply.statusCode >= 300) return;
+    const route = request.routeOptions.url;
+    const ingress = route === '/hooks/:token' || route === '/hooks/:token/*' || route === '/events/:token';
+    const name = ingress ? (route === '/events/:token' ? 'external_event_received' : 'webhook_received') : analyticsActions[`${request.method} ${route}`];
+    if (!name) return;
+    try {
+      options.analytics.capture(name, { method: request.method, status_code: reply.statusCode }, {
+        distinctId: ingress ? 'webhook-lab:collector' : 'webhook-lab:admin',
+        // Stable for this accepted action and all SDK transport retries, unique
+        // across process restarts. Incoming sender IDs never enter analytics.
+        eventId: `webhook-lab:${analyticsInstance}:${request.id}:${name}`,
+      });
+    } catch { /* Analytics must never affect a response or its error handling. */ }
+  });
+  app.addHook('onClose', async () => {
+    try { await options.analytics?.close(); }
+    catch { /* Shutdown remains possible if analytics is unavailable. */ }
+  });
 
   app.addHook('onRequest', async (request, reply) => {
     reply.header('Cache-Control', 'no-store');

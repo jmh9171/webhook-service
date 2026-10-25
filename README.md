@@ -82,6 +82,7 @@ Set these environment variables privately in hosting settings (or a gitignored `
 | `CAPTURE_TOKEN` | Unguessable URL token, at least 20 characters; keep stable across deployments. |
 | `PORT` | Listening port; defaults to 3000. |
 | `HOST` | Defaults to `0.0.0.0` in production and `127.0.0.1` in development. |
+| `SIGNAL_API_KEY` | Optional Signal **server** project key; enables backend analytics. Supply privately at runtime. |
 
 The app has a username/password login page and a sign-out control. Sessions use HttpOnly, SameSite=Strict cookies with Secure enabled in production. They expire after 24 hours, on sign-out, or when the server restarts. Use HTTPS at the hosting proxy for dashboard authentication. Public webhook routes do not require dashboard credentials. Inspection, downloads, and history deletion require authentication. Health checks use `/healthz`. Request bodies and credentials are not logged by the application; hosting access logs may still record URLs.
 
@@ -97,3 +98,34 @@ npm run build
 ```
 
 See [PLAN.md](PLAN.md) for scope and deployment steps.
+
+## Signal analytics
+
+The backend sends internal usage events to `https://clonalytics-staging-kpjmx.sevalla.app` using Signal's copied server SDK. Set `SIGNAL_API_KEY` privately in the runtime environment (or the ignored local `.env`). Missing or blank keys disable tracking. The key stays on the backend; there is no browser analytics client.
+
+Only successful backend actions are tracked: sign-in/out, accepted webhook and external timeline ingress, request inspection/body downloads, inbox clearing, chaos endpoint creation/reset/deletion, mock API creation/deletion, heartbeat watch creation/deletion/alert tests, and timeline clearing. Browser-only tools and replay script execution do not emit events. Health checks, polling, rejected requests, simulator traffic, and recurring heartbeat pings do not emit events.
+
+Every event includes only `method` and `status_code`. Subjects are the fixed pseudonymous internal IDs `webhook-lab:admin` for dashboard actions and `webhook-lab:collector` for ingress; sender traffic is not attributed to the admin. No usernames, payloads, headers, URLs, query strings, endpoint IDs, correlation IDs, user-entered labels, or credentials are sent. Each accepted HTTP action gets an event ID unique across restarts and stable across SDK delivery retries. Repeated incoming webhook deliveries count as separate accepted captures.
+
+Configure the Signal project's allowed property keys as `method`, `status_code` and allowed event names as:
+
+```text
+admin_signed_in
+admin_signed_out
+webhook_received
+external_event_received
+request_inspected
+request_body_downloaded
+inbox_cleared
+chaos_endpoint_created
+chaos_endpoint_reset
+chaos_endpoint_deleted
+mock_api_created
+mock_api_deleted
+heartbeat_watch_created
+heartbeat_watch_deleted
+heartbeat_alert_tested
+timeline_cleared
+```
+
+Consent is enabled explicitly for this internal server integration. Captures queue in bounded memory and flush every 10 seconds and on graceful shutdown. Network timeouts, retries, queue limits, and a shutdown deadline keep Signal outages from failing user requests or preventing shutdown. Events can be lost on crashes, queue overflow, or prolonged outages; this is usage analytics rather than an audit log. Diagnostics contain only bounded codes, counts, and HTTP statuses.
